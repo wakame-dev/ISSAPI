@@ -1,46 +1,62 @@
 const express = require('express');
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
 
-// Expressアプリケーションのセットアップ
+// YouTube URL
+const YOUTUBE_URL = 'https://www.youtube.com/live/xRPjKQtRXR8?si=XMz5dJgIRlBzFNSh';
+const imagePath = path.join(__dirname, 'iss_image.jpg');
+
+// Expressアプリケーションの作成
 const app = express();
 const port = 3000;
 
-// YouTubeライブストリームのURL
-const YOUTUBE_URL = 'https://www.youtube.com/live/xRPjKQtRXR8?si=XMz5dJgIRlBzFNSh';  // 最新のURL
+// 1秒ごとに画像を更新する処理
+setInterval(() => {
+    fetchImage();
+}, 1000);
 
-// スクリーンショットを保存するディレクトリ
-const screenshotDir = './screenshots';
-if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir);
+// 画像取得と更新を行う関数
+async function fetchImage() {
+    try {
+        const output = imagePath;
+
+        // yt-dlpとffmpegを使ってスクリーンショットを撮るコマンド
+        const youtubeStreamCommand = `yt-dlp -f best -o - ${YOUTUBE_URL} | ffmpeg -i pipe:0 -vframes 1 -q:v 2 ${output}`;
+
+        // コマンド実行
+        exec(youtubeStreamCommand, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing command: ${error.message}`);
+                return;
+            }
+
+            if (stderr) {
+                console.error(`stderr: ${stderr}`);
+                return;
+            }
+
+            console.log('Screenshot updated successfully!');
+        });
+    } catch (error) {
+        console.error('Error fetching or processing the image:', error);
+    }
 }
 
-// 画像を保存するファイル名を生成
-function generateImageFileName() {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-'); // ISO形式のタイムスタンプ
-    return path.join(screenshotDir, `iss_image_${timestamp}.jpg`);
-}
-
-// 1秒ごとにスクリーンショットをキャプチャ
-function captureScreenshot() {
-    const outputFile = generateImageFileName();
-
-    // 古い画像を削除
-    fs.readdir(screenshotDir, (err, files) => {
+// 画像をAPI経由で返すエンドポイント
+app.get('/image', (req, res) => {
+    // 画像ファイルをレスポンスとして返す
+    fs.readFile(imagePath, (err, data) => {
         if (err) {
-            console.error('Error reading directory:', err);
+            res.status(500).send('Error reading image');
             return;
         }
-        files.forEach(file => {
-            const filePath = path.join(screenshotDir, file);
-            fs.unlink(filePath, (err) => {
-                if (err) {
-                    console.error('Error deleting file:', err);
-                }
-            });
-        });
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.send(data);
     });
+});
 
-    // YouTubeのライブストリームURLを直接処理
-    const youtubeStreamCommand = `yt-dlp -f best -o - ${YOUTUBE_URL} | ffmpeg -i pipe:0 -vframes 1 -q:v 2 ${output}`;
+// サーバーを起動
+app.listen(port, () => {
+    console.log(`API Server is running on http://localhost:${port}`);
+});
