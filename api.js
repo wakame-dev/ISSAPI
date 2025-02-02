@@ -43,4 +43,4 @@ function captureScreenshot() {
     });
 
     // YouTubeのライブストリームURLを直接処理
-    const youtubeStreamCommand = `yt-dlp -f best -o - ${YOUTUBE_URL} | ffmpeg -i pipe:0 -vframes 1 -q:v 2 ${output
+    const youtubeStreamCommand = `yt-dlp -f best -o - ${YOUTUBE_URL} | ffmpeg -i pipe:0 -vframes 1 -q:v 2 ${output}`;
